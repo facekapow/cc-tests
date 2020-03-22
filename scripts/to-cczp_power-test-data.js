@@ -6,8 +6,9 @@ const util = require('./util')
  * @param {string} sig
  * @param {string} exp
  * @param {string} mod
+ * @param {string} recip
  */
-module.exports = (sig, exp, mod) => {
+module.exports = (sig, exp, mod, recip) => {
 	const len = util.roundUpToNearest(Math.max(sig.length, exp.length, mod.length), CCN_UNIT_SIZE * 2)
 	const n = len / (CCN_UNIT_SIZE * 2)
 	const byteLen = len / 2
@@ -15,6 +16,7 @@ module.exports = (sig, exp, mod) => {
 	sig = sig.padStart(len, '0')
 	exp = exp.padStart(len, '0')
 	mod = mod.padStart(len, '0')
+	recip = recip.padStart(len + 2, '0')
 
 	const expectation =
 		util.shell(`python -c "print(hex(pow(int('${sig}', 16), int('${exp}', 16), int('${mod}', 16))))"`)
@@ -32,6 +34,9 @@ ${util.toByteArray(exp, true)}
 },
 .modulus = (uint8_t[${byteLen}]) {
 ${util.toByteArray(mod, true)}
+},
+.reciprocal = (uint8_t[${byteLen + CCN_UNIT_SIZE}]) {
+${util.toByteArray(recip, true)}
 },
 .expectation = (uint8_t[${byteLen}]) {
 ${util.toByteArray(expectation, true)}

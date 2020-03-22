@@ -9,7 +9,7 @@
 #include <string.h>
 
 #if !defined(CCN_UNIT_SIZE)
-	#if defined(__arm64__) || defined(__x86_64__)  || defined(_WIN64) 
+	#if defined(__arm64__) || defined(__x86_64__)  || defined(_WIN64)
 		#define CCN_UNIT_SIZE  8
 	#elif defined(__arm__) || defined(__i386__) || defined(_WIN32)
 		#define CCN_UNIT_SIZE  4
@@ -22,20 +22,24 @@ typedef uint8_t cc_byte;
 typedef size_t  cc_size;
 
 #if CCN_UNIT_SIZE == 8
-	typedef uint64_t cc_unit;        // 64 bit unit
-	#define CCN_LOG2_BITS_PER_UNIT 6 // 2^6 = 64 bits
+	typedef uint64_t cc_unit;                            // 64 bit unit
+	typedef unsigned cc_dunit __attribute__((mode(TI))); // 128 bit double width unit
+	#define CCN_LOG2_BITS_PER_UNIT 6                     // 2^6 = 64 bits
 	#define CC_UNIT_C(x) UINT64_C(x)
 #elif CCN_UNIT_SIZE == 4
-	typedef uint32_t cc_unit;        // 32 bit unit
-	#define CCN_LOG2_BITS_PER_UNIT 5 // 2^5 = 32 bits
+	typedef uint32_t cc_unit;                            // 32 bit unit
+	typedef uint64_t cc_dunit;                           // 64 bit double width unit
+	#define CCN_LOG2_BITS_PER_UNIT 5                     // 2^5 = 32 bits
 	#define CC_UNIT_C(x) UINT32_C(x)
 #elif CCN_UNIT_SIZE == 2
-	typedef uint16_t cc_unit;        // 16 bit unit
-	#define CCN_LOG2_BITS_PER_UNIT 4 // 2^4 = 16 bits
+	typedef uint16_t cc_unit;                            // 16 bit unit
+	typedef uint32_t cc_dunit;                           // 32 bit double width unit
+	#define CCN_LOG2_BITS_PER_UNIT 4                     // 2^4 = 16 bits
 	#define CC_UNIT_C(x) UINT16_C(x)
 #elif CCN_UNIT_SIZE == 1
-	typedef uint8_t cc_unit;         // 8 bit unit
-	#define CCN_LOG2_BITS_PER_UNIT 3 // 2^3 = 8 bits
+	typedef uint8_t cc_unit;                             // 8 bit unit
+	typedef uint16_t cc_dunit;                           // 16 bit double width unit
+	#define CCN_LOG2_BITS_PER_UNIT 3                     // 2^3 = 8 bits
 	#define CC_UNIT_C(x) UINT8_C(x)
 #else
 	#error invalid CCN_UNIT_SIZE
@@ -100,6 +104,13 @@ cc_size ccn_n(cc_size n, const cc_unit* s);
 cc_unit ccn_shift_right(cc_size n, cc_unit* r, const cc_unit* s, size_t k);
 
 // operation:
+//   s >> k -> r
+// sizing:
+//   s = n bits
+//   r = n bits
+void ccn_shift_right_multi(cc_size n, cc_unit *r,const cc_unit *s, size_t k);
+
+// operation:
 //   s << k -> r
 // returns:
 //   bits shifted out of s
@@ -109,6 +120,13 @@ cc_unit ccn_shift_right(cc_size n, cc_unit* r, const cc_unit* s, size_t k);
 //   s = n bits
 //   r = n bits
 cc_unit ccn_shift_left(cc_size n, cc_unit* r, const cc_unit* s, size_t k);
+
+// operation:
+//   s << k -> r
+// sizing:
+//   s = n bits
+//   r = n bits
+void ccn_shift_left_multi(cc_size n, cc_unit *r, const cc_unit *s, size_t k);
 
 // operation:
 //   bitlen s

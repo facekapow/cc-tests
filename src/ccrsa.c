@@ -70,38 +70,43 @@ int ccrsa_verify_pkcs1v15(ccrsa_pub_ctx_t key, const uint8_t* oid, size_t digest
 	cc_println("key", ccrsa_pub_ctx_size(ccn_sizeof_n(ccrsa_ctx_n(key))), (const uint8_t*)cczp_t_AS_u(ccrsa_ctx_zm(key)));
 	cc_println("oid", strlen((const char*)oid), oid);
 	printf("digest_len: %zu\n", digest_len);
-	cc_println_be("digest", digest_len, digest);
+	cc_println("digest", digest_len, digest);
 	printf("sig_len: %zu\n", sig_len);
-	cc_println_be("sig", sig_len, sig);
+	cc_println("sig (big endian)", sig_len, sig);
 
 	*valid = false;
 
 	cc_unit* s = NULL;
-	struct cczp* zp = NULL;
 	cc_unit* m = NULL;
 	uint8_t* em = NULL;
 	uint8_t* em_prime = NULL;
 
 	cc_size mod_size = ccrsa_ctx_n(key);
-	cc_unit* modulus = ccrsa_ctx_m(key);
+	cczp_t zp = ccrsa_ctx_zm(key);
+	const cc_unit* modulus = cczp_prime((cczp_const_short_t)zp);
+	const cc_unit* reciprocal = cczp_recip(zp);
 	cc_unit* exponent = ccrsa_ctx_e(key);
 
 	// mod_size is how many units are allocated for the modulus
 	// mod_len is how many bytes (*bytes*, not units) are in use
-	cc_size mod_bits = ccn_bitlen(mod_size, modulus);
-	cc_size mod_len = (mod_bits + 7) / 8;
-	mod_size = ccn_nof(mod_bits);
+	cc_size mod_used_bits = ccn_bitlen(mod_size, modulus);
+	cc_size mod_len = (mod_used_bits + 7) / 8;
+	//mod_size = ccn_nof(mod_used_bits);
 
 	cc_size sig_bits = ccn_bitsof_size(sig_len);
 
 	printf("n of mod: %zu\n", mod_size);
 	printf("mod_len: %zu\n", mod_len);
-	cc_println_be("mod", ccn_sizeof_n(mod_size), (const uint8_t*)modulus);
-	cc_println_be("e", ccn_sizeof_n(mod_size), (const uint8_t*)exponent);
+	cc_println("mod (little endian)", ccn_sizeof_n(mod_size), (const uint8_t*)modulus);
+	cc_println("exp (little endian)", ccn_sizeof_n(mod_size), (const uint8_t*)exponent);
+	cc_println("mod_recip (little endian)", ccn_sizeof_n(mod_size + 1), (const uint8_t*)reciprocal);
+	cc_println_be("mod (big endian)", ccn_sizeof_n(mod_size), (const uint8_t*)modulus);
+	cc_println_be("exp (big endian)", ccn_sizeof_n(mod_size), (const uint8_t*)exponent);
+	cc_println_be("mod_recip (big endian)", ccn_sizeof_n(mod_size + 1), (const uint8_t*)reciprocal);
 
-	// Length of signature should equal length of modulus
-	if (sig_bits != mod_bits) {
-		printf("%s: sig_bits (%zu) != mod_bits (%zu)\n", __PRETTY_FUNCTION__, sig_bits, mod_bits);
+	// number of bits in signature should equal the number of bits in modulus
+	if (sig_bits != mod_used_bits) {
+		printf("%s: sig_bits (%zu) != mod_bits (%zu)\n", __PRETTY_FUNCTION__, sig_bits, mod_used_bits);
 		goto fail;
 	}
 
@@ -116,31 +121,26 @@ int ccrsa_verify_pkcs1v15(ccrsa_pub_ctx_t key, const uint8_t* oid, size_t digest
 		goto fail;
 	}
 
-	// Verify that s is in the range of 0 and modulus-1
+	// Verify that s is in the range of `0` and `modulus - 1`
 	if (ccn_cmp(sig_units, s, modulus) >= 0 || ccn_bitlen(sig_units, s) == 0) {
 		printf("%s: s not in range of [0, modulus)\n", __PRETTY_FUNCTION__);
 		goto fail;
 	}
 
+	m = __builtin_alloca(mod_len);
 	// m = s^e mod n
-
-	zp = __builtin_alloca(cczp_size(sig_bytes));
-	CCZP_N(zp) = sig_units;
-	cczp_init(zp);
-
-	// maybe we should copy modulus into cczp_prime
-	memcpy(CCZP_PRIME(zp), modulus, ccn_sizeof_n(CCZP_N(zp)));
-
-	m = __builtin_alloca(sig_bytes);
 	cczp_power(zp, m, s, exponent);
 
+	// convert `m` into an octet stream in `em`
 	em = __builtin_alloca(sig_bytes);
 	memset(em, 0, sig_bytes);
 	ccn_write_uint(sig_units, m, sig_bytes, em);
 
-	cc_println_be("m", sig_bytes, (const uint8_t*)m);
-	cc_println("em", sig_bytes, (const uint8_t*)em);
+	cc_println("m (little endian)", sig_bytes, (const uint8_t*)m);
+	cc_println("em (big endian)", sig_bytes, (const uint8_t*)em);
 
+	// encode the digest into an EMSA-PKCS#1 v1.5 encoded message
+	// to compare with `em`
 	em_prime = __builtin_alloca(sig_bytes);
 	memset(em_prime, 0, sig_bytes);
 	if (ccrsa_emsa_pkcs1v15_encode(sig_bytes, em_prime, digest_len, digest, oid)) {
@@ -148,7 +148,7 @@ int ccrsa_verify_pkcs1v15(ccrsa_pub_ctx_t key, const uint8_t* oid, size_t digest
 		goto fail;
 	}
 
-	cc_println("em_prime", sig_bytes, em_prime);
+	cc_println("em_prime (big endian)", sig_bytes, em_prime);
 
 	*valid = !memcmp(em, em_prime, sig_bytes);
 	if (!*valid) {

@@ -25,7 +25,6 @@ add_executable(cctest
 	"${PROJECT_SOURCE_DIR}/src/ccsha1.c"
 	"${PROJECT_SOURCE_DIR}/src/ccsha2.c"
 	"${PROJECT_SOURCE_DIR}/src/ccsha3.c"
-	"${PROJECT_SOURCE_DIR}/src/cctest.c"
 )
 
 target_include_directories(cctest PRIVATE "${PROJECT_SOURCE_DIR}/include")

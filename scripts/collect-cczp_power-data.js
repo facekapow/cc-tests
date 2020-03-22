@@ -1,6 +1,7 @@
 const sigRegex = /sig \(big endian\): ([A-Fa-f0-9]+)/
 const expRegex = /exp \(big endian\): ([A-Fa-f0-9]+)/
 const modRegex = /mod \(big endian\): ([A-Fa-f0-9]+)/
+const recipRegex = /mod_recip \(big endian\): ([A-Fa-f0-9]+)/
 
 const process = require('process')
 const util = require('./util')
@@ -18,9 +19,10 @@ module.exports = (iterations, url) => {
 		const sig = stdout.match(sigRegex)[1]
 		const exp = stdout.match(expRegex)[1]
 		const mod = stdout.match(modRegex)[1]
-	
-		const data = to_cczp_power_test_data(sig, exp, mod)
-	
+		const recip = stdout.match(recipRegex)[1]
+
+		const data = to_cczp_power_test_data(sig, exp, mod, recip)
+
 		result.push(`
 cctest_cczp_power("${url} #${i + 1}",
 ${data}

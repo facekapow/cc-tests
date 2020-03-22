@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 void cc_clear(size_t len, void *dst);
 
